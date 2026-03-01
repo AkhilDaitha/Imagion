@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imagion - Quiz Yourself</title>
+    <!-- Include styling exact to index.html base layout -->
+    <style>
+        :root {
+            --bg-color: #1e1f20;
+            --surface-color: #282a2c;
+            --text-color: #ffffff;
+            --text-secondary: #aaaaaa;
+            --primary-gradient: linear-gradient(135deg, #4285f4, #8b5cf6);
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-color);
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            padding: 0 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .new-chat-btn {
+            background-color: var(--surface-color);
+            border: none;
+            color: var(--text-color);
+            padding: 14px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 30px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #33363a;
+        }
+
+        .new-chat-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            overflow-y: auto;
+            align-items: center;
+        }
+
+        /* Quiz Specific Styles */
+        .quiz-container {
+            width: 100%;
+            max-width: 800px;
+            padding: 60px 40px;
+        }
+
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .quiz-header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .quiz-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .question-card {
+            background-color: var(--surface-color);
+            padding: 32px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 0.5s forwards ease-out;
+        }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .question-text {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            color: #fff;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            padding: 16px 20px;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .option-btn:disabled {
+            cursor: default;
+            opacity: 0.9;
+        }
+
+        .option-btn.correct {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            color: #fff;
+        }
+
+        .option-btn.incorrect {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+            color: #fff;
+        }
+
+        /* Smooth Feedback Toast */
+        .feedback-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -40%) scale(0.95);
+            background: rgba(30, 31, 32, 0.95);
+            padding: 24px 48px;
+            border-radius: 20px;
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .feedback-toast.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .feedback-toast.success {
+            border: 2px solid #10b981;
+            color: #34d399;
+        }
+
+        .feedback-toast.error {
+            border: 2px solid #ef4444;
+            color: #f87171;
+        }
+
+        /* Loader */
+        .loader-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 50vh;
+            gap: 20px;
+            color: var(--text-secondary);
+        }
+
+        .pulse-loader {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid rgba(139, 92, 246, 0.3);
+            border-top-color: #8b5cf6;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">Imagion</div>
+        <button class="new-chat-btn" onclick="window.close()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Chat
+        </button>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-area">
+        <div id="quizContainer" class="quiz-container">
+            <div id="loader" class="loader-container">
+                <div class="pulse-loader"></div>
+                <p>Analyzing conversation and generating custom quiz...</p>
+            </div>
+
+            <div id="quizContent" style="display: none;">
+                <div class="quiz-header">
+                    <h1>Your Knowledge Check</h1>
+                    <p>Let's see what you remember from our conversation!</p>
+                </div>
+                <!-- Questions injected here -->
+                <div id="questionsDiv"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="feedbackToast" class="feedback-toast"></div>
+
+    <script>
+        const quizContainer = document.getElementById('quizContent');
+        const loader = document.getElementById('loader');
+        const questionsDiv = document.getElementById('questionsDiv');
+        const feedbackToast = document.getElementById('feedbackToast');
+
+        // Fetch running summary logic
+        async function fetchAndRenderQuiz() {
+            const currentQuizId = localStorage.getItem('imagion_current_quiz_id');
+            const summaryKey = currentQuizId ? 'imagion_summary_' + currentQuizId : 'imagion_summary_temp';
+            const rawSummary = localStorage.getItem(summaryKey);
+
+            if (!rawSummary || rawSummary.length < 10) {
+                loader.innerHTML = `<h2>Not enough conversation data!</h2><p>Go back to the chat and talk to Imagion a bit more before generating a quiz!</p>`;
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ summary: rawSummary })
+                });
+
+                if (!response.ok) throw new Error("Server error");
+
+                const quizData = await response.json();
+
+                if (Array.isArray(quizData) && quizData.length > 0) {
+                    renderQuiz(quizData);
+                } else {
+                    throw new Error("Invalid format returned");
+                }
+            } catch (err) {
+                console.error(err);
+                loader.innerHTML = `<h2>Oops! Something went wrong.</h2><p>Could not generate the quiz. Please try talking to Imagion a bit more.</p>`;
+            }
+        }
+
+        function renderQuiz(questions) {
+            loader.style.display = 'none';
+            quizContainer.style.display = 'block';
+
+            questions.forEach((q, qIndex) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                card.style.animationDelay = `${qIndex * 0.15}s`; // Stagger animation
+
+                const qText = document.createElement('div');
+                qText.className = 'question-text';
+                qText.textContent = `${qIndex + 1}. ${q.question}`;
+                card.appendChild(qText);
+
+                const optionsGrid = document.createElement('div');
+                optionsGrid.className = 'options-grid';
+
+                let answeredCorrectlyForThisQuestion = false;
+
+                q.options.forEach((optText, optIndex) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.textContent = optText;
+
+                    btn.onclick = () => {
+                        if (answeredCorrectlyForThisQuestion) return; // Prevent clicking after right answer
+
+                        if (optText === q.correctAnswer) {
+                            btn.classList.add('correct');
+                            answeredCorrectlyForThisQuestion = true;
+
+                            // Visual Feedback Success
+                            triggerConfetti(btn);
+                            showFeedback("Good job!", true);
+
+                            // Disable other options securely
+                            const allBtns = optionsGrid.querySelectorAll('.option-btn');
+                            allBtns.forEach(b => {
+                                if (b !== btn) {
+                                    b.disabled = true;
+                                    b.style.opacity = '0.5';
+                                }
+                            });
+                        } else {
+                            btn.classList.add('incorrect');
+                            // Delay brief styling reset so user tries again or keeps it red
+
+                            // Visual Feedback Try Again
+                            showFeedback("Try again!", false);
+                        }
+                    };
+
+                    optionsGrid.appendChild(btn);
+                });
+
+                card.appendChild(optionsGrid);
+                questionsDiv.appendChild(card);
+            });
+        }
+
+        let feedbackTimeout;
+        function showFeedback(message, isSuccess) {
+            feedbackToast.textContent = message;
+            feedbackToast.className = `feedback-toast show ${isSuccess ? 'success' : 'error'}`;
+
+            clearTimeout(feedbackTimeout);
+            feedbackTimeout = setTimeout(() => {
+                feedbackToast.classList.remove('show');
+            }, 2000); // Wait 2 seconds then fade out smoothly
+        }
+
+        function triggerConfetti(sourceElement) {
+            const rect = sourceElement.getBoundingClientRect();
+            // Calculate relative origin for canvas-confetti (0 to 1)
+            const x = (rect.left + (rect.width / 2)) / window.innerWidth;
+            const y = (rect.top + (rect.height / 2)) / window.innerHeight;
+
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { x, y },
+                colors: ['#4285f4', '#8b5cf6', '#10b981', '#f59e0b']
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', fetchAndRenderQuiz);
+    </script>
+</body>
+
+</html>

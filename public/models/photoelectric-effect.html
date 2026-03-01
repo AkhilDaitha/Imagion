@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photoelectric Effect</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+body{font-family:'Inter',sans-serif}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:#e2e8f0;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04)}
+.mbtn{transition:all .15s;border:2px solid transparent;cursor:pointer}
+.mbtn.on{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+<div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+<div><h1 class="text-xl font-bold text-slate-800">Photoelectric Effect</h1><p class="text-sm text-slate-500">Interactive 2D Simulation</p></div>
+<button id="rst" class="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg">Reset</button>
+</div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_330px] gap-5">
+<div class="flex flex-col gap-5">
+  <div class="card overflow-hidden"><canvas id="sim"></canvas></div>
+  <div class="card px-5 py-3 flex items-center gap-4 flex-wrap text-sm">
+    <span class="font-semibold text-slate-500 uppercase tracking-wide">Einstein's Equation</span>
+    <span class="text-lg font-semibold text-slate-800">KE<sub>max</sub> = <span class="text-blue-600">hf</span> &minus; <span class="text-amber-600">&phi;</span></span>
+    <span class="ml-auto text-slate-500"><b class="text-blue-600">hf</b> photon energy &nbsp; <b class="text-amber-600">&phi;</b> work function &nbsp; <b class="text-emerald-600">KE</b> kinetic energy</span>
+  </div>
+  <div class="card overflow-hidden"><div class="px-5 pt-3 pb-1 text-sm font-semibold text-slate-600">Energy Diagram (eV)</div><canvas id="ebar"></canvas></div>
+  <div class="card overflow-hidden relative"><div class="px-5 pt-3 pb-1 text-sm font-semibold text-slate-600">KE vs Frequency</div><canvas id="graph"></canvas><div id="tip" class="absolute bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 pointer-events-none"></div></div>
+</div>
+<div class="flex flex-col gap-5">
+  <div class="card px-5 py-4"><label class="text-sm font-semibold text-slate-600 block mb-3">Metal Surface</label><div class="grid grid-cols-2 gap-2" id="mats"></div></div>
+  <div class="card px-5 py-5 flex flex-col gap-5">
+    <div>
+      <div class="flex justify-between mb-1"><label class="text-sm font-semibold text-slate-600">Frequency (&times;10&sup1;&sup4; Hz)</label><span id="fv" class="text-sm font-semibold text-blue-600 tabular-nums">6.00</span></div>
+      <input id="fs" type="range" min="1" max="30" step="0.1" value="6">
+      <div class="flex justify-between text-xs text-slate-400 mt-1"><span>1 (IR)</span><span>30 (UV)</span></div>
+    </div>
+    <div>
+      <div class="flex justify-between mb-1"><label class="text-sm font-semibold text-slate-600">Intensity (photons)</label><span id="iv" class="text-sm font-semibold text-blue-600 tabular-nums">5</span></div>
+      <input id="is" type="range" min="1" max="20" step="1" value="5">
+    </div>
+    <div class="flex items-center gap-3"><div id="cprev" class="w-8 h-8 rounded-full border border-slate-200 shadow-inner"></div><div><div id="wlbl" class="text-sm font-medium text-slate-700"></div><div id="slbl" class="text-xs text-slate-400"></div></div></div>
+  </div>
+  <div class="card px-5 py-4"><label class="text-sm font-semibold text-slate-600 block mb-3">Live Data</label><div id="data" class="space-y-1.5 text-sm"></div></div>
+  <div class="card px-5 py-4"><label class="text-sm font-semibold text-slate-600 block mb-3">Observations</label><ul id="obs" class="space-y-1.5 text-sm text-slate-600"></ul></div>
+</div>
+</main>
+
+<script>
+(function(){
+"use strict";
+const Hev=4.1357e-15,C=3e8;
+const MAT=[
+  {n:"Cesium",p:2.1,c:"#d4a017"},{n:"Sodium",p:2.28,c:"#a0a0a0"},
+  {n:"Zinc",p:3.63,c:"#7d8896"},{n:"Copper",p:4.65,c:"#b87333"},
+  {n:"Platinum",p:5.65,c:"#8c8c8c"},{n:"Iron",p:4.5,c:"#6b6b6b"}
+];
+let mi=0,photons=[],electrons=[],sparks=[],eject=0,st=0;
+
+const $=id=>document.getElementById(id);
+const sim=$("sim"),sc=sim.getContext("2d"),eb=$("ebar"),ec=eb.getContext("2d"),gr=$("graph"),gc=gr.getContext("2d");
+const fs=$("fs"),is=$("is"),fv=$("fv"),iv=$("iv"),tip=$("tip");
+
+function resize(){
+  const w=sim.parentElement.clientWidth;
+  sim.width=w;sim.height=Math.round(w*.575);
+  eb.width=w;eb.height=150;
+  gr.width=w;gr.height=210;
+}
+window.addEventListener("resize",resize);resize();
+
+const f14=()=>+fs.value,fHz=()=>f14()*1e14,inten=()=>+is.value,m=()=>MAT[mi];
+const pe=()=>Hev*fHz(),tf=()=>m().p/Hev/1e14,ke=()=>Math.max(0,pe()-m().p),wl=()=>C/fHz()*1e9;
+
+function fc(f){
+  const w=C/(f*1e14)*1e9;
+  if(w>=700)return{r:180,g:0,b:0};if(w>=620){let t=(w-620)/80;return{r:220,g:Math.round(100*(1-t)),b:0}}
+  if(w>=590){let t=(w-590)/30;return{r:255,g:Math.round(165+55*t),b:0}}if(w>=565){let t=(w-565)/25;return{r:Math.round(255*t),g:220,b:0}}
+  if(w>=520){let t=(w-520)/45;return{r:0,g:Math.round(180+40*t),b:Math.round(80*(1-t))}}if(w>=490){let t=(w-490)/30;return{r:0,g:Math.round(100+80*t),b:Math.round(200*(1-t)+80*t)}}
+  if(w>=450){let t=(w-450)/40;return{r:Math.round(60*(1-t)),g:0,b:Math.round(200+55*(1-t))}}if(w>=380){let t=(w-380)/70;return{r:Math.round(100*(1-t)),g:0,b:Math.round(180+75*t)}}
+  return{r:120,g:0,b:200};
+}
+const rgb=(c,a)=>a!=null?`rgba(${c.r},${c.g},${c.b},${a})`:`rgb(${c.r},${c.g},${c.b})`;
+function sn(w){return w>700?"Infrared":w>620?"Red":w>590?"Orange":w>565?"Yellow":w>520?"Green":w>490?"Cyan":w>450?"Blue":w>380?"Violet":"Ultraviolet"}
+
+const me=$("mats");
+MAT.forEach((mt,i)=>{
+  const b=document.createElement("button");
+  b.className="mbtn text-sm font-medium px-3 py-2 rounded-lg text-slate-600 bg-slate-50 hover:bg-slate-100";
+  b.innerHTML=`<span class="inline-block w-3 h-3 rounded-full mr-1 align-middle" style="background:${mt.c}"></span>${mt.n} <span class="text-xs text-slate-400">(${mt.p}eV)</span>`;
+  b.onclick=()=>{mi=i;ub();reset()};me.appendChild(b);
+});
+function ub(){me.querySelectorAll(".mbtn").forEach((b,i)=>b.classList.toggle("on",i===mi))}ub();
+
+const pX=()=>sim.width*.62,pT=()=>40,pB=()=>sim.height-40,pW=24,lX=50,lY=()=>sim.height/2;
+
+function spawn(){
+  const n=inten(),px=pX(),pt=pT()+20,pb=pB()-20,lx=lX+30,ly=lY();
+  for(let i=0;i<n;i++){
+    const ty=pt+Math.random()*(pb-pt),sy=ly+(Math.random()-.5)*40,sp=3.5+Math.random()*2;
+    const dx=px-lx,dy=ty-sy,d=Math.sqrt(dx*dx+dy*dy);
+    photons.push({x:lx,y:sy,vx:dx/d*sp,vy:dy/d*sp,a:1,r:3.5+Math.random()*1.5,t:[]});
+  }
+}
+
+function ejectE(x,y){
+  const k=ke();if(k<=0)return;
+  const sp=1.5+k*.8,an=(Math.random()-.5);
+  electrons.push({x:x+pW+4,y,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp-.3,a:1,t:[]});
+  eject++;
+  for(let i=0;i<4;i++)sparks.push({x:x+pW+2,y,vx:1+Math.random()*3,vy:(Math.random()-.5)*3,l:1});
+}
+
+function update(){
+  if(++st>=40){spawn();st=0}
+  const px=pX();
+  photons.forEach(p=>{p.t.push({x:p.x,y:p.y});if(p.t.length>8)p.t.shift();p.x+=p.vx;p.y+=p.vy;if(p.x>=px){p.a=0;ejectE(px,p.y)}});
+  photons=photons.filter(p=>p.a);
+  electrons.forEach(e=>{e.t.push({x:e.x,y:e.y});if(e.t.length>12)e.t.shift();e.x+=e.vx;e.y+=e.vy;e.vx*=.998;e.vy+=.008;if(e.x>sim.width+20||e.y<-20||e.y>sim.height+20)e.a=0});
+  electrons=electrons.filter(e=>e.a);
+  sparks.forEach(s=>{s.x+=s.vx;s.y+=s.vy;s.l-=.04});sparks=sparks.filter(s=>s.l>0);
+}
+
+function lighten(h,a){let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`}
+
+function drawSim(){
+  const W=sim.width,H=sim.height,c=sc,px=pX(),pt=pT(),pb=pB(),lx=lX,ly=lY();
+  c.clearRect(0,0,W,H);
+  const bg=c.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#f8fafc");bg.addColorStop(1,"#f1f5f9");c.fillStyle=bg;c.fillRect(0,0,W,H);
+
+  const pg=c.createLinearGradient(px,0,px+pW,0);pg.addColorStop(0,m().c);pg.addColorStop(.5,lighten(m().c,30));pg.addColorStop(1,m().c);
+  c.fillStyle=pg;c.beginPath();c.roundRect(px,pt,pW,pb-pt,4);c.fill();c.strokeStyle="rgba(0,0,0,.15)";c.lineWidth=1;c.stroke();
+  c.fillStyle="#475569";c.font="600 12px Inter,sans-serif";c.textAlign="center";c.fillText(m().n+" plate",px+pW/2,pb+20);c.fillText("\u03C6="+m().p+"eV",px+pW/2,pb+34);
+
+  const lc=fc(f14());
+  const gg=c.createRadialGradient(lx+15,ly,5,lx+15,ly,45);gg.addColorStop(0,rgb(lc,.5));gg.addColorStop(1,rgb(lc,0));c.fillStyle=gg;c.beginPath();c.arc(lx+15,ly,45,0,Math.PI*2);c.fill();
+  c.fillStyle="#334155";c.beginPath();c.roundRect(lx-10,ly-28,30,56,6);c.fill();c.fillStyle=rgb(lc);c.beginPath();c.arc(lx+15,ly,10,0,Math.PI*2);c.fill();
+  c.fillStyle="#475569";c.font="600 12px Inter,sans-serif";c.textAlign="center";c.fillText("Light source",lx+10,ly+50);
+
+  c.save();c.globalAlpha=.07;c.fillStyle=rgb(lc);c.beginPath();c.moveTo(lx+30,ly-10);c.lineTo(px,pt+20);c.lineTo(px,pb-20);c.lineTo(lx+30,ly+10);c.closePath();c.fill();c.restore();
+
+  const pc=fc(f14());
+  photons.forEach(p=>{c.beginPath();p.t.forEach((t,i)=>i?c.lineTo(t.x,t.y):c.moveTo(t.x,t.y));c.lineTo(p.x,p.y);c.strokeStyle=rgb(pc,.3);c.lineWidth=1.5;c.stroke();
+    c.fillStyle=rgb(pc,.9);c.beginPath();c.arc(p.x,p.y,p.r,0,Math.PI*2);c.fill();c.fillStyle="rgba(255,255,255,.6)";c.beginPath();c.arc(p.x-1,p.y-1,p.r*.4,0,Math.PI*2);c.fill()});
+
+  electrons.forEach(e=>{c.beginPath();e.t.forEach((t,i)=>i?c.lineTo(t.x,t.y):c.moveTo(t.x,t.y));c.lineTo(e.x,e.y);c.strokeStyle="rgba(59,130,246,.25)";c.lineWidth=1.5;c.stroke();
+    c.fillStyle="rgba(59,130,246,.9)";c.beginPath();c.arc(e.x,e.y,4,0,Math.PI*2);c.fill();c.strokeStyle="#fff";c.lineWidth=1.5;c.beginPath();c.moveTo(e.x-2,e.y);c.lineTo(e.x+2,e.y);c.stroke()});
+
+  sparks.forEach(s=>{c.fillStyle=`rgba(59,130,246,${s.l*.7})`;c.beginPath();c.arc(s.x,s.y,2*s.l,0,Math.PI*2);c.fill()});
+
+  if(ke()<=0){c.save();c.globalAlpha=.4+.2*Math.sin(Date.now()/300);c.strokeStyle="#ef4444";c.lineWidth=3;c.setLineDash([6,4]);c.beginPath();c.roundRect(px-2,pt-2,pW+4,pb-pt+4,6);c.stroke();c.restore();
+    c.fillStyle="#ef4444";c.font="600 13px Inter,sans-serif";c.textAlign="center";c.fillText("Below Threshold!",px+pW/2,pt-10)}
+
+  const cx=W-50;c.fillStyle="#64748b";c.beginPath();c.roundRect(cx,pt+40,16,pb-pt-80,4);c.fill();
+  c.fillStyle="#475569";c.font="600 11px Inter,sans-serif";c.textAlign="center";c.fillText("Collector",cx+8,pb+20);
+  c.strokeStyle="#94a3b8";c.lineWidth=2;c.setLineDash([]);c.beginPath();c.moveTo(px+pW,pb-5);c.lineTo(px+pW+15,pb+45);c.lineTo(cx-5,pb+45);c.lineTo(cx,pb-42);c.stroke();
+  const aX=(px+pW+cx)/2,aY=pb+45;c.fillStyle="#fff";c.strokeStyle="#94a3b8";c.lineWidth=2;c.beginPath();c.arc(aX,aY,16,0,Math.PI*2);c.fill();c.stroke();
+  c.fillStyle="#334155";c.font="bold 11px Inter,sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText("A",aX,aY);c.textBaseline="alphabetic";
+}
+
+function drawEnergy(){
+  const W=eb.width,H=eb.height,c=ec;c.clearRect(0,0,W,H);
+  const p={l:60,r:40,t:10,b:28},bW=60,mx=12,ch=H-p.t-p.b,s=ch/mx;
+  c.strokeStyle="#cbd5e1";c.lineWidth=1;c.beginPath();c.moveTo(p.l,p.t);c.lineTo(p.l,H-p.b);c.lineTo(W-p.r,H-p.b);c.stroke();
+  c.fillStyle="#94a3b8";c.font="11px Inter,sans-serif";c.textAlign="right";
+  for(let v=0;v<=mx;v+=2){const y=H-p.b-v*s;c.fillText(v+"",p.l-8,y+4);c.strokeStyle="#f1f5f9";c.beginPath();c.moveTo(p.l,y);c.lineTo(W-p.r,y);c.stroke()}
+  const cx=W/2,pv=pe(),wf=m().p,kv=ke();
+  [[cx-100,pv,"#3b82f6","rgba(59,130,246,.15)","hf="+pv.toFixed(2)+"eV","Photon"],
+   [cx,wf,"#f59e0b","rgba(245,158,11,.15)","\u03C6="+wf.toFixed(2)+"eV","Work fn."],
+   [cx+100,kv,kv>0?"#10b981":"#ef4444",kv>0?"rgba(16,185,129,.15)":"rgba(239,68,68,.1)",kv>0?"KE="+kv.toFixed(2)+"eV":"No emission","Kinetic E."]
+  ].forEach(([bx,v,col,bg,lbl,sub])=>{
+    const bh=v*s,by=H-p.b-bh;c.fillStyle=bg;c.fillRect(bx,by,bW,Math.max(bh,2));c.fillStyle=col;c.fillRect(bx,by,bW,3);
+    c.font="600 12px Inter,sans-serif";c.textAlign="center";c.fillText(lbl,bx+bW/2,by-6);c.fillStyle="#64748b";c.font="11px Inter,sans-serif";c.fillText(sub,bx+bW/2,H-p.b+14);
+  });
+}
+
+function drawGraph(){
+  const W=gr.width,H=gr.height,c=gc;c.clearRect(0,0,W,H);
+  const p={l:60,r:30,t:20,b:38},cW=W-p.l-p.r,cH=H-p.t-p.b,fMn=1,fMx=30,mkE=12;
+  c.strokeStyle="#cbd5e1";c.lineWidth=1;c.beginPath();c.moveTo(p.l,p.t);c.lineTo(p.l,H-p.b);c.lineTo(W-p.r,H-p.b);c.stroke();
+  c.fillStyle="#94a3b8";c.font="11px Inter,sans-serif";c.textAlign="center";
+  for(let f=5;f<=30;f+=5){const x=p.l+((f-fMn)/(fMx-fMn))*cW;c.fillText(f+"",x,H-p.b+14);c.strokeStyle="#f1f5f9";c.beginPath();c.moveTo(x,p.t);c.lineTo(x,H-p.b);c.stroke()}
+  c.fillText("Frequency (\u00d710\u00b9\u2074 Hz)",p.l+cW/2,H-p.b+32);
+  c.save();c.translate(14,p.t+cH/2);c.rotate(-Math.PI/2);c.textAlign="center";c.fillStyle="#94a3b8";c.fillText("KE max (eV)",0,0);c.restore();
+  c.textAlign="right";for(let v=0;v<=mkE;v+=2){const y=H-p.b-(v/mkE)*cH;c.fillStyle="#94a3b8";c.fillText(v+"",p.l-8,y+4);c.strokeStyle="#f1f5f9";c.lineWidth=1;c.beginPath();c.moveTo(p.l,y);c.lineTo(W-p.r,y);c.stroke()}
+
+  c.beginPath();c.strokeStyle="#3b82f6";c.lineWidth=2;let s=0;
+  for(let f=fMn;f<=fMx;f+=.2){const k=Hev*f*1e14-m().p;if(k<=0)continue;const x=p.l+((f-fMn)/(fMx-fMn))*cW,y=H-p.b-(k/mkE)*cH;s?c.lineTo(x,y):(c.moveTo(x,y),s=1)}c.stroke();
+
+  const th=tf(),tx=p.l+((th-fMn)/(fMx-fMn))*cW;
+  c.beginPath();c.strokeStyle="#ef4444";c.lineWidth=2;c.setLineDash([4,4]);c.moveTo(p.l,H-p.b);c.lineTo(tx,H-p.b);c.stroke();c.setLineDash([]);
+  c.strokeStyle="rgba(245,158,11,.5)";c.lineWidth=1;c.setLineDash([4,3]);c.beginPath();c.moveTo(tx,p.t);c.lineTo(tx,H-p.b);c.stroke();c.setLineDash([]);
+  c.fillStyle="#f59e0b";c.font="600 11px Inter,sans-serif";c.textAlign="center";c.fillText("f\u2080="+th.toFixed(1),tx,p.t-4);
+
+  const cf=f14(),ck=ke(),mx2=p.l+((cf-fMn)/(fMx-fMn))*cW,my=H-p.b-(ck/mkE)*cH;
+  c.fillStyle=ck>0?"#3b82f6":"#ef4444";c.beginPath();c.arc(mx2,ck>0?my:H-p.b,6,0,Math.PI*2);c.fill();
+  c.fillStyle="#fff";c.beginPath();c.arc(mx2,ck>0?my:H-p.b,2.5,0,Math.PI*2);c.fill();
+  c.strokeStyle="rgba(59,130,246,.3)";c.lineWidth=1;c.setLineDash([3,3]);c.beginPath();c.moveTo(mx2,ck>0?my:H-p.b);c.lineTo(mx2,H-p.b);c.stroke();
+  if(ck>0){c.beginPath();c.moveTo(mx2,my);c.lineTo(p.l,my);c.stroke()}c.setLineDash([]);
+}
+
+function updateUI(){
+  const f=f14(),w=wl(),p=pe(),k=ke(),th=tf(),ok=k>0;
+  fv.textContent=f.toFixed(2);iv.textContent=inten();
+  const cl=fc(f);$("cprev").style.background=rgb(cl);$("wlbl").textContent=w.toFixed(0)+" nm";$("slbl").textContent=sn(w);
+  const r=(l,v,c)=>`<div class="flex justify-between"><span class="text-slate-500">${l}</span><span class="font-semibold tabular-nums" style="color:${c}">${v}</span></div>`;
+  $("data").innerHTML=[r("Photon energy",p.toFixed(3)+" eV","#3b82f6"),r("Work function (\u03C6)",m().p.toFixed(2)+" eV","#f59e0b"),r("Max KE",ok?k.toFixed(3)+" eV":"\u2014",ok?"#10b981":"#94a3b8"),r("Threshold freq.",th.toFixed(2)+" \u00d710\u00b9\u2074 Hz","#f59e0b"),r("Wavelength",w.toFixed(0)+" nm","#6366f1"),r("Electrons ejected",""+eject,ok?"#3b82f6":"#94a3b8")].join("");
+  const o=[];
+  if(!ok)o.push(`<span class="text-red-500 font-medium">Frequency below threshold (${th.toFixed(1)} \u00d710\u00b9\u2074 Hz). No electrons emitted.</span>`);
+  else{o.push(`<span class="text-emerald-600 font-medium">Electrons emitting!</span> Freq exceeds threshold.`);o.push(`Photon: <b>${p.toFixed(2)} eV</b> \u2192 KE: <b>${k.toFixed(2)} eV</b>`)}
+  o.push("Intensity changes photon count, <b>not</b> energy per photon \u2014 a key quantum result.");
+  $("obs").innerHTML=o.map(x=>`<li class="leading-relaxed">${x}</li>`).join("");
+}
+
+function reset(){photons=[];electrons=[];sparks=[];eject=0;st=0}
+fs.addEventListener("input",()=>{eject=0});
+$("rst").onclick=()=>{fs.value=6;is.value=5;mi=0;ub();reset()};
+
+gr.addEventListener("mousemove",e=>{
+  const r=gr.getBoundingClientRect(),mx=e.clientX-r.left,sx=gr.width/r.width,cx=mx*sx;
+  const p={l:60,r:30},cW=gr.width-p.l-p.r;
+  if(cx>=p.l&&cx<=gr.width-p.r){const f=1+((cx-p.l)/cW)*29,k=Math.max(0,Hev*f*1e14-m().p);tip.style.left=mx+12+"px";tip.style.top=e.clientY-r.top-10+"px";tip.style.opacity="1";tip.textContent=`f=${f.toFixed(1)}\u00d710\u00b9\u2074Hz KE=${k.toFixed(2)}eV`}else tip.style.opacity="0"});
+gr.addEventListener("mouseleave",()=>{tip.style.opacity="0"});
+
+(function loop(){update();drawSim();drawEnergy();drawGraph();updateUI();requestAnimationFrame(loop)})();
+})();
+</script>
+</body>
+</html>

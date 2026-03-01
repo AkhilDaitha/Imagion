@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imagion - AI Tutor</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        /* [KEEP ALL YOUR EXISTING CSS EXACTLY AS IT WAS] */
+        :root {
+            --bg-color: #1e1f20;
+            --surface-color: #282a2c;
+            --text-color: #ffffff;
+            --text-secondary: #aaaaaa;
+            --primary-gradient: linear-gradient(135deg, #4285f4, #8b5cf6);
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-color);
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            padding: 0 10px;
+            letter-spacing: -0.5px;
+            user-select: none;
+        }
+
+        .new-chat-btn {
+            background-color: var(--surface-color);
+            border: none;
+            color: var(--text-color);
+            padding: 14px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 30px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #33363a;
+        }
+
+        .new-chat-btn:active {
+            transform: scale(0.98);
+        }
+
+        .new-chat-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+        }
+
+        .sidebar-section {
+            padding: 0 10px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .recent-list {
+            font-size: 13px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            position: relative;
+            background-color: var(--bg-color);
+            transition: all 0.3s ease;
+        }
+
+        .visual-panel-container {
+            width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: var(--bg-color);
+            border-right: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        .visual-panel-container.active {
+            width: 55%;
+            opacity: 1;
+            padding: 24px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .visual-surface {
+            flex: 1;
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .visual-surface.glowing {
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 0 20px rgba(139, 92, 246, 0.15);
+        }
+
+        .visual-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .pulse-ring {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            animation: pulse-animation 2s infinite ease-out;
+        }
+
+        .pulse-ring.heart {
+            background-color: rgba(139, 92, 246, 0.2);
+            border: 2px solid #8b5cf6;
+        }
+
+        .pulse-ring.cell {
+            background-color: rgba(66, 133, 244, 0.2);
+            border: 2px solid #4285f4;
+        }
+
+        .pulse-ring.watercycle {
+            background-color: rgba(20, 184, 166, 0.2);
+            border: 2px solid #14b8a6;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .loader-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .visual-active .chat-side {
+            width: 45%;
+        }
+
+        .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            transition: opacity 0.3s ease;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .empty-state h1 {
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--text-color);
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 15%;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            scroll-behavior: smooth;
+            padding-bottom: 20px;
+            transition: padding 0.4s ease;
+        }
+
+        .visual-active .chat-container {
+            padding: 40px 5%;
+        }
+
+        .chat-container.hidden {
+            display: none;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 16px;
+            max-width: 100%;
+            opacity: 0;
+            animation: fadeIn 0.4s forwards ease-out;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .student-msg {
+            align-self: flex-end;
+            background-color: var(--surface-color);
+            padding: 16px 22px;
+            border-radius: 20px 20px 4px 20px;
+            max-width: 75%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .msg-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .imagion-row {
+            align-self: flex-start;
+            max-width: 85%;
+        }
+
+        .imagion-icon {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+            margin-top: 4px;
+        }
+
+        .imagion-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .imagion-msg {
+            padding: 8px 0;
+            flex: 1;
+        }
+
+        .imagion-msg p {
+            margin-bottom: 16px;
+            line-height: 1.6;
+            color: #f1f3f4;
+        }
+
+        .imagion-msg strong {
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .imagion-msg em {
+            color: #e2e8f0;
+            font-style: italic;
+        }
+
+        .imagion-msg ul,
+        .imagion-msg ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+            color: #f1f3f4;
+        }
+
+        .imagion-msg li {
+            margin-bottom: 8px;
+        }
+
+        .visual-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #d1d5db;
+        }
+
+        .visual-badge.style-3D {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(66, 133, 244, 0.1));
+            border-color: rgba(139, 92, 246, 0.3);
+            color: #c4b5fd;
+        }
+
+        .visual-badge.style-2D {
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(20, 184, 166, 0.1));
+            border-color: rgba(66, 133, 244, 0.3);
+            color: #93c5fd;
+        }
+
+        .imagion-msg p:last-child {
+            margin-bottom: 0;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px 0;
+            align-items: center;
+            height: 24px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .input-area {
+            padding: 20px 15% 30px;
+            position: relative;
+            transition: padding 0.4s ease;
+        }
+
+        .visual-active .input-area {
+            padding: 20px 5% 30px;
+        }
+
+        .input-wrapper {
+            background-color: var(--surface-color);
+            border-radius: 24px;
+            display: flex;
+            align-items: flex-end;
+            padding: 12px 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: border-color 0.3s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            resize: none;
+            outline: none;
+            max-height: 200px;
+            font-family: inherit;
+            font-size: 16px;
+            padding: 6px 12px;
+            line-height: 1.5;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            margin-bottom: -1px;
+            margin-left: 8px;
+        }
+
+        .send-btn.active {
+            color: #ffffff;
+            background: var(--primary-gradient);
+            box-shadow: 0 2px 10px rgba(66, 133, 244, 0.4);
+        }
+
+        .send-btn.active:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        .model-selector {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            margin-bottom: -1px;
+            margin-right: 4px;
+            transition: border-color 0.2s;
+            max-width: 160px;
+            text-overflow: ellipsis;
+        }
+
+        .model-selector:hover,
+        .model-selector:focus {
+            border-color: rgba(255, 255, 255, 0.25);
+            color: var(--text-color);
+        }
+
+        .model-selector option {
+            background: var(--surface-color);
+            color: var(--text-color);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        #visualTooltip {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            width: 300px;
+            background: rgba(30, 31, 53, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #8b5cf6;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 100;
+        }
+
+        #visualTooltip.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #tooltipTitle {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        #tooltipDesc {
+            font-size: 13px;
+            color: #d1d5db;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .tooltip-hint {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 10px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .tooltip-hint svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        #visualContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #visualContainer canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+        }
+
+        #visualContainer svg {
+            width: 95%;
+            height: 95%;
+            max-width: 800px;
+            overflow: visible;
+        }
+
+        .clickable-region {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clickable-region:hover {
+            filter: brightness(1.2);
+            stroke-width: 3px;
+        }
+
+        .floating-label {
+            position: absolute;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        .floating-label::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -20px;
+            width: 20px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: -1;
+        }
+
+        .floating-label.right-side::after {
+            left: auto;
+            right: -20px;
+        }
+
+        .svg-label-group {
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .svg-label-text {
+            font-family: var(--font-family);
+            font-size: 13px;
+            font-weight: 500;
+            fill: #ffffff;
+        }
+
+        .svg-leader-line {
+            stroke: rgba(255, 255, 255, 0.4);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .close-visual-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+
+        .close-visual-btn:hover {
+            color: #fff;
+            background: rgba(0, 0, 0, 0.6);
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0 !important;
+        }
+
+        /* Dynamic 2D SVG animations */
+        @keyframes dynamic-pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes dynamic-flow {
+            0% {
+                stroke-dashoffset: 20;
+            }
+
+            100% {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .anim-dynamic-pulse {
+            animation: dynamic-pulse 2s infinite ease-in-out;
+            transform-origin: center;
+        }
+
+        .anim-dynamic-flow {
+            stroke-dasharray: 10 10;
+            animation: dynamic-flow 1s infinite linear;
+        }
+    </style>
+</head>
+
+<body>
+
+    <aside class="sidebar">
+        <div class="logo">Imagion</div>
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Chat
+        </button>
+        <button id="generateQuizBtn" class="new-chat-btn hidden" onclick="window.open('/quiz.html', '_blank')"
+            style="background: var(--primary-gradient); color: white; border: none; margin-top: -15px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+            </svg>
+            Generate Quiz
+        </button>
+        <div class="sidebar-section">
+            <div class="sidebar-title">Recent Learnings</div>
+            <div class="recent-list" id="recentList">
+                No recent conversations yet.
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-area" id="mainArea">
+
+        <div class="visual-panel-container" id="visualPanel">
+            <div class="visual-surface glowing" id="visualSurface">
+                <button class="close-visual-btn" id="closeVisualBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="visual-loader" id="visualLoader">
+                    <div class="pulse-ring" id="visualPulse"></div>
+                    <div class="loader-text" id="visualLoaderText">Building Visual...</div>
+                </div>
+                <div id="visualContainer" class="hidden"></div>
+                <div id="floatingLabelsContainer"></div>
+
+                <div id="visualTooltip">
+                    <div id="tooltipTitle">Part Name</div>
+                    <div id="tooltipDesc">Description goes here</div>
+                    <div class="tooltip-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M15.02 9.02l4.98-4.98M14 4h6v6M10 14l-5 5M10.12 10.12l-1.42 1.42M13.88 13.88l1.42-1.42">
+                            </path>
+                        </svg>
+                        Click to explore with AI
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-side">
+            <div class="empty-state" id="emptyState">
+                <h1>What do you want to learn?</h1>
+            </div>
+
+            <div class="chat-container hidden" id="chatContainer">
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="chatInput" class="chat-input" placeholder="Ask Imagion a question..."
+                        rows="1"></textarea>
+                    <select id="modelSelector" class="model-selector" title="Select AI Model">
+                        <option value="loading" disabled selected>Loading…</option>
+                    </select>
+                    <button id="sendBtn" class="send-btn" disabled>
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatContainer = document.getElementById('chatContainer');
+        const emptyState = document.getElementById('emptyState');
+        const mainArea = document.getElementById('mainArea');
+        const visualPanel = document.getElementById('visualPanel');
+        const visualPulse = document.getElementById('visualPulse');
+        const visualLoaderText = document.getElementById('visualLoaderText');
+        const visualLoader = document.getElementById('visualLoader');
+        const visualContainer = document.getElementById('visualContainer');
+        const closeVisualBtn = document.getElementById('closeVisualBtn');
+        const floatingLabelsContainer = document.getElementById('floatingLabelsContainer');
+        const visualTooltip = document.getElementById('visualTooltip');
+        const tooltipTitle = document.getElementById('tooltipTitle');
+        const tooltipDesc = document.getElementById('tooltipDesc');
+        const recentList = document.getElementById('recentList');
+
+        let messagesArray = [];
+        let activeVisualTopic = null;
+        let currentAnimationId = null;
+
+        // Model selector state
+        const modelSelector = document.getElementById('modelSelector');
+        let selectedModel = null;
+
+        fetch('/api/models').then(r => r.json()).then(data => {
+            modelSelector.innerHTML = '';
+            data.models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.label;
+                if (m.id === data.default) opt.selected = true;
+                modelSelector.appendChild(opt);
+            });
+            selectedModel = data.default;
+        }).catch(() => {
+            modelSelector.innerHTML = '<option value="gemini-2.5-flash">Gemini 2.5 Flash</option>';
+            selectedModel = 'gemini-2.5-flash';
+        });
+
+        modelSelector.addEventListener('change', () => {
+            selectedModel = modelSelector.value;
+            localStorage.setItem('imagion_selected_model', selectedModel);
+        });
+
+        function getModel() { return selectedModel || modelSelector.value; }
+
+        let currentConversationId = null;
+        let recentConversations = JSON.parse(localStorage.getItem('imagion_history')) || [];
+
+        function timeAgo(ms) {
+            const seconds = Math.floor((Date.now() - ms) / 1000);
+            if (seconds < 60) return "Just now";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+            return new Date(ms).toLocaleDateString();
+        }
+
+        function renderSidebar() {
+            if (recentConversations.length === 0) {
+                recentList.innerHTML = 'No recent conversations yet.';
+                return;
+            }
+            recentList.innerHTML = '';
+            recentConversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'recent-item';
+                if (conv.id === currentConversationId) item.classList.add('active');
+                const displayTitle = conv.title && conv.title.length > 30 ? conv.title.substring(0, 30) + '...' : (conv.title || 'New Conversation');
+                item.innerHTML = `
+                    <div class="recent-title">${escapeHTML(displayTitle)}</div>
+                    <div class="recent-time">${timeAgo(conv.timestamp)}</div>
+                `;
+                item.addEventListener('click', () => loadConversation(conv.id));
+                recentList.appendChild(item);
+            });
+        }
+
+        renderSidebar();
+
+        chatInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.value.trim().length > 0) {
+                sendBtn.classList.add('active');
+                sendBtn.disabled = false;
+            } else {
+                sendBtn.classList.remove('active');
+                sendBtn.disabled = true;
+            }
+        });
+
+        chatInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                if (this.value.trim().length > 0 && !sendBtn.disabled) {
+                    processSubmission();
+                }
+            }
+        });
+
+        sendBtn.addEventListener('click', () => {
+            if (!sendBtn.disabled) processSubmission();
+        });
+
+        function startNewChat() {
+            currentConversationId = null;
+            messagesArray = [];
+            chatContainer.innerHTML = '';
+            document.getElementById('generateQuizBtn')?.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            closeVisualPanel();
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendBtn.classList.remove('active');
+            sendBtn.disabled = true;
+            renderSidebar();
+        }
+
+        function loadConversation(id) {
+            const conv = recentConversations.find(c => c.id === id);
+            if (!conv) return;
+            currentConversationId = id;
+            messagesArray = [...conv.messages];
+            emptyState.classList.add('hidden');
+            chatContainer.classList.remove('hidden');
+            chatContainer.innerHTML = '';
+            closeVisualPanel();
+            messagesArray.forEach(msg => {
+                addMessageToDOM(msg.role, msg.content, msg.visualTarget);
+            });
+            if (messagesArray.length > 0) {
+                document.getElementById('generateQuizBtn')?.classList.remove('hidden');
+                localStorage.setItem('imagion_current_quiz_id', id);
+            }
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendBtn.classList.remove('active');
+            sendBtn.disabled = true;
+            scrollToBottom();
+            renderSidebar();
+        }
+
+        closeVisualBtn.addEventListener('click', closeVisualPanel);
+
+        function closeVisualPanel() {
+            mainArea.classList.remove('visual-active');
+            visualPanel.classList.remove('active');
+            activeVisualTopic = null;
+
+            if (currentAnimationId) {
+                cancelAnimationFrame(currentAnimationId);
+                currentAnimationId = null;
+            }
+
+            setTimeout(() => {
+                visualContainer.innerHTML = '';
+                visualContainer.classList.add('hidden');
+                visualLoader.classList.remove('hidden');
+                floatingLabelsContainer.innerHTML = '';
+            }, 300);
+        }
+
+        window.onVisualClick = function (label) {
+            chatInput.value = `Tell me about the ${label}`;
+            sendBtn.classList.add('active');
+            sendBtn.disabled = false;
+            processSubmission();
+        };
+
+        async function processSubmission() {
+            const rawText = chatInput.value.trim();
+            if (!rawText) return;
+
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendBtn.classList.remove('active');
+            sendBtn.disabled = true;
+
+            const isFirstMessage = messagesArray.length === 0;
+            if (isFirstMessage) {
+                emptyState.classList.add('hidden');
+                chatContainer.classList.remove('hidden');
+            }
+
+            addMessageToDOM('user', rawText);
+            messagesArray.push({ role: 'user', content: rawText, visualTarget: null });
+            scrollToBottom();
+
+            const typingIndicatorId = addTypingIndicatorToDOM();
+            scrollToBottom();
+
+            let visualTriggered = null;
+
+            try {
+                const routerRes = await fetch('/api/router', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: rawText, model: getModel() })
+                });
+                const routerData = await routerRes.json();
+
+                if (routerData.type !== 'TEXT' && routerData.topic) {
+                    if (activeVisualTopic !== routerData.topic) {
+                        activeVisualTopic = routerData.topic;
+                        mainArea.classList.add('visual-active');
+                        visualPanel.classList.add('active');
+
+                        visualLoader.classList.remove('hidden');
+                        visualContainer.classList.add('hidden');
+                        visualContainer.innerHTML = '';
+                        floatingLabelsContainer.innerHTML = '';
+
+                        visualPulse.className = `pulse-ring ${routerData.topic}`;
+
+                        let displayName = routerData.topic.replace(/-/g, ' ');
+                        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+                        
+                        // Handle SIMULATION manually with an iframe
+                        if (routerData.type === 'SIMULATION') {
+                            visualLoaderText.textContent = `Loading ${displayName} Simulation...`;
+                            
+                            // Let the loader show for a brief moment for effect
+                            setTimeout(() => {
+                                visualLoader.classList.add('hidden');
+                                visualContainer.classList.remove('hidden');
+                                visualContainer.style.opacity = '0';
+                                visualTooltip.classList.remove('active');
+                                
+                                visualContainer.innerHTML = `<iframe src="/models/${routerData.topic}.html" style="width:100%; height:100%; border:none; border-radius:16px;"></iframe>`;
+                                
+                                setTimeout(() => {
+                                    visualContainer.style.transition = 'opacity 0.8s ease';
+                                    visualContainer.style.opacity = '1';
+                                }, 50);
+                            }, 500);
+
+                        } else {
+                            // DYNAMIC GENERATION — always use AI-generated visuals for 2D/3D
+                            const typeLabel = routerData.type === '3D' ? '3D Model' : 'Diagram';
+                            visualLoaderText.textContent = `Generating ${displayName} ${typeLabel}...`;
+                            loadDynamicVisual(routerData.topic);
+                        }
+                    }
+                    visualTriggered = routerData;
+                    scrollToBottom();
+                } else if (activeVisualTopic) {
+                    visualTriggered = { type: 'existing', topic: activeVisualTopic };
+                } else {
+                    closeVisualPanel();
+                }
+
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: messagesArray, model: getModel() })
+                });
+
+                const data = await response.json();
+
+                const typingEl = document.getElementById(typingIndicatorId);
+                if (typingEl) typingEl.remove();
+
+                if (response.ok && data.response) {
+                    addMessageToDOM('assistant', data.response, visualTriggered);
+                    messagesArray.push({ role: 'assistant', content: data.response, visualTarget: visualTriggered });
+
+                    document.getElementById('generateQuizBtn')?.classList.remove('hidden');
+
+                    const currentSummaryKey = currentConversationId ? 'imagion_summary_' + currentConversationId : 'imagion_summary_temp';
+                    const currentSummary = localStorage.getItem(currentSummaryKey) || "";
+                    fetch('/api/summary', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ currentSummary, newExchange: { user: rawText, assistant: data.response }, model: getModel() })
+                    }).then(res => res.json()).then(sd => {
+                        if (sd.summary && currentConversationId) {
+                            localStorage.setItem('imagion_summary_' + currentConversationId, sd.summary);
+                            localStorage.setItem('imagion_current_quiz_id', currentConversationId);
+                        } else if (sd.summary) {
+                            localStorage.setItem('imagion_summary_temp', sd.summary);
+                        }
+                    }).catch(console.error);
+
+                    if (isFirstMessage) {
+                        currentConversationId = Date.now().toString();
+                        const newConv = {
+                            id: currentConversationId,
+                            title: rawText,
+                            timestamp: Date.now(),
+                            messages: [...messagesArray]
+                        };
+                        recentConversations.unshift(newConv);
+                        renderSidebar();
+
+                        fetch('/api/title', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ question: rawText, model: getModel() })
+                        }).then(res => res.json()).then(titleData => {
+                            const target = recentConversations.find(c => c.id === currentConversationId);
+                            if (target) {
+                                target.title = titleData.title;
+                                localStorage.setItem('imagion_history', JSON.stringify(recentConversations));
+                                renderSidebar();
+                            }
+                        }).catch(e => console.error("Auto-title failed", e));
+                    } else {
+                        const target = recentConversations.find(c => c.id === currentConversationId);
+                        if (target) {
+                            target.messages = [...messagesArray];
+                            target.timestamp = Date.now();
+                            recentConversations.sort((a, b) => b.timestamp - a.timestamp);
+                        }
+                    }
+
+                    localStorage.setItem('imagion_history', JSON.stringify(recentConversations));
+                    renderSidebar();
+                } else {
+                    addMessageToDOM('assistant', 'Sorry, I encountered an error: ' + (data.error || 'Server error'));
+                }
+            } catch (err) {
+                const typingEl = document.getElementById(typingIndicatorId);
+                if (typingEl) typingEl.remove();
+                addMessageToDOM('assistant', 'Failed to connect. Please make sure the server is running properly.');
+                console.error("Fetch Error:", err);
+            }
+            scrollToBottom();
+        }
+
+        function addMessageToDOM(role, text, visualTarget = null) {
+            const rowDiv = document.createElement('div');
+            if (role === 'user') {
+                rowDiv.className = 'message-row student-msg';
+                rowDiv.innerHTML = `<div class="msg-content">${escapeHTML(text)}</div>`;
+            } else {
+                rowDiv.className = 'message-row imagion-row';
+                const formattedHtml = marked.parse(text);
+                let badgeHTML = '';
+                if (visualTarget && visualTarget.type !== 'TEXT' && visualTarget.type !== 'existing') {
+                    badgeHTML = `<div class="visual-badge style-${visualTarget.type}">${visualTarget.type === '3D' ? '3D Model' : '2D Diagram'}</div>`;
+                }
+                rowDiv.innerHTML = `
+                    <div class="imagion-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div class="imagion-msg">
+                        <div class="msg-content">${formattedHtml}</div>
+                        ${badgeHTML}
+                    </div>
+                `;
+            }
+            chatContainer.appendChild(rowDiv);
+        }
+
+        function addTypingIndicatorToDOM() {
+            const indicatorId = 'typing-' + Date.now();
+            const rowDiv = document.createElement('div');
+            rowDiv.id = indicatorId;
+            rowDiv.className = 'message-row imagion-row';
+            rowDiv.innerHTML = `
+                <div class="imagion-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="imagion-msg">
+                    <div class="typing-indicator">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(rowDiv);
+            return indicatorId;
+        }
+
+        function scrollToBottom() { chatContainer.scrollTop = chatContainer.scrollHeight; }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g,
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+            );
+        }
+
+        // ==========================================
+        // DYNAMIC VISUALIZATION ENGINE (NEW)
+        // ==========================================
+
+        function showVisual() {
+            visualLoader.classList.add('hidden');
+            visualContainer.classList.remove('hidden');
+            visualContainer.style.opacity = '0';
+            visualTooltip.classList.remove('active');
+            setTimeout(() => {
+                visualContainer.style.transition = 'opacity 0.8s ease';
+                visualContainer.style.opacity = '1';
+            }, 50);
+        }
+
+        function updateTooltip(title, desc) {
+            tooltipTitle.textContent = title;
+            tooltipDesc.textContent = desc;
+            visualTooltip.classList.add('active');
+        }
+
+        function hideTooltip() {
+            visualTooltip.classList.remove('active');
+        }
+
+        let lastGeneratedTopic = null;
+
+        async function loadDynamicVisual(topic) {
+            if (currentAnimationId) cancelAnimationFrame(currentAnimationId);
+            visualContainer.innerHTML = '';
+            floatingLabelsContainer.innerHTML = '';
+            hideTooltip();
+            lastGeneratedTopic = topic;
+
+            try {
+                const res = await fetch('/api/generate-visual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, model: getModel() })
+                });
+                const jsonData = await res.json();
+
+                if (!res.ok || !jsonData || !jsonData.model_type) {
+                    showGenerationError(topic);
+                    return;
+                }
+
+                if (jsonData.model_type === '3D') {
+                    buildDynamic3DScene(jsonData);
+                } else if (jsonData.model_type === '2D') {
+                    buildDynamic2DScene(jsonData);
+                }
+
+            } catch (err) {
+                console.error('Dynamic Generation Error:', err);
+                showGenerationError(topic);
+            }
+        }
+
+        function wireUpGeneratedInteractiveNodes(container) {
+            const interactiveEls = container.querySelectorAll('.clickable-region');
+            interactiveEls.forEach(el => {
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', function () {
+                    const name = this.getAttribute('data-name');
+                    if (name) window.onVisualClick(name);
+                });
+                el.addEventListener('mouseenter', function () {
+                    const name = this.getAttribute('data-name') || '';
+                    const info = this.getAttribute('data-info') || '';
+                    if (name) updateTooltip(name, info);
+                });
+                el.addEventListener('mouseleave', () => hideTooltip());
+            });
+        }
+
+        function showGenerationError(topic) {
+            visualLoader.classList.add('hidden');
+            visualContainer.classList.remove('hidden');
+            visualContainer.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#aaa;text-align:center;padding:32px;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <p style="font-size:16px;color:#ccc;margin:0;">Could not generate visualization — try asking in a different way</p>
+                    <button onclick="retryDynamicVisual()" style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);color:#a78bfa;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:14px;font-family:inherit;transition:all 0.2s;">
+                        ↻ Retry
+                    </button>
+                </div>
+            `;
+        }
+
+        window.retryDynamicVisual = function () {
+            if (lastGeneratedTopic) {
+                visualContainer.innerHTML = '';
+                visualContainer.classList.add('hidden');
+                visualLoader.classList.remove('hidden');
+                let displayName = lastGeneratedTopic.replace(/-/g, ' ');
+                displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+                visualLoaderText.textContent = `Generating ${displayName} Blueprint...`;
+                loadDynamicVisual(lastGeneratedTopic);
+            }
+        };
+
+        // ----------------------------------------------------
+        // THE 3D JSON TRANSLATOR
+        // ----------------------------------------------------
+        function buildDynamic3DScene(data) {
+            showVisual();
+            const w = visualContainer.clientWidth;
+            const h = visualContainer.clientHeight;
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(data.scene_config.background || '#0a0a1a');
+
+            if (data.scene_config.fog && data.scene_config.fog.enabled) {
+                scene.fog = new THREE.Fog(data.scene_config.fog.color, data.scene_config.fog.near, data.scene_config.fog.far);
+            }
+
+            const camConf = data.scene_config.camera;
+            const camera = new THREE.PerspectiveCamera(camConf.fov || 60, w / h, 0.1, 1000);
+            camera.position.set(...(camConf.position || [0, 5, 15]));
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            visualContainer.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = camConf.auto_rotate || false;
+
+            // Lighting Parser
+            const lightConf = data.scene_config.lighting;
+            if (lightConf.ambient) {
+                scene.add(new THREE.AmbientLight(lightConf.ambient.color, lightConf.ambient.intensity));
+            }
+            if (lightConf.directional) {
+                const dirLight = new THREE.DirectionalLight(lightConf.directional.color, lightConf.directional.intensity);
+                dirLight.position.set(...lightConf.directional.position);
+                scene.add(dirLight);
+            }
+            if (lightConf.point_lights) {
+                lightConf.point_lights.forEach(pl => {
+                    const pLight = new THREE.PointLight(pl.color, pl.intensity, pl.distance);
+                    pLight.position.set(...pl.position);
+                    scene.add(pLight);
+                });
+            }
+
+            const modelGroup = new THREE.Group();
+            scene.add(modelGroup);
+
+            const clickableMeshes = [];
+            const labels = [];
+
+            // Component Parser
+            data.components.forEach(comp => {
+                // Setup Geometry dynamically
+                const GeoClass = THREE[comp.geometry.type] || THREE.BoxGeometry;
+                // Parse strings to ints where needed (e.g. radial segments for Torus)
+                const geoParams = comp.geometry.params.map(p => typeof p === 'string' ? parseFloat(p) : p);
+                const geometry = new GeoClass(...geoParams);
+
+                // Setup Material dynamically
+                const MatClass = THREE[comp.material.type] || THREE.MeshStandardMaterial;
+                const matParams = {
+                    color: new THREE.Color(comp.material.color || '#ffffff'),
+                    metalness: comp.material.metalness || 0,
+                    roughness: comp.material.roughness || 0.5,
+                    transparent: comp.material.transparent || false,
+                    opacity: comp.material.opacity !== undefined ? comp.material.opacity : 1.0,
+                    wireframe: comp.material.wireframe || false
+                };
+                if (comp.material.emissive) {
+                    matParams.emissive = new THREE.Color(comp.material.emissive);
+                    matParams.emissiveIntensity = comp.material.emissive_intensity || 1;
+                }
+                const material = new MatClass(matParams);
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(...(comp.position || [0, 0, 0]));
+                mesh.rotation.set(...(comp.rotation || [0, 0, 0]));
+                mesh.scale.set(...(comp.scale || [1, 1, 1]));
+
+                // Lookup detailed Section Data for hover tools
+                const sectionData = data.sections.find(s => s.mesh_name === comp.mesh_name) || {};
+
+                mesh.userData = {
+                    name: sectionData.label || comp.name,
+                    desc: sectionData.detail || 'No description available.',
+                    short: sectionData.short || '',
+                    originalEmissive: material.emissive.getHex(),
+                    animation: comp.animation
+                };
+
+                modelGroup.add(mesh);
+                clickableMeshes.push(mesh);
+
+                // Add HTML Labels
+                if (data.annotations && data.annotations.enabled) {
+                    const div = document.createElement('div');
+                    div.className = 'floating-label';
+                    div.textContent = mesh.userData.name;
+                    if (mesh.position.x > 0) div.classList.add('right-side');
+                    floatingLabelsContainer.appendChild(div);
+                    labels.push({ mesh, div });
+                }
+            });
+
+            // Particles Parser
+            let particleSystem = null;
+            if (data.particles && data.particles.enabled) {
+                const pGeo = new THREE.BufferGeometry();
+                const count = data.particles.count || 100;
+                const posArray = new Float32Array(count * 3);
+                for (let i = 0; i < count * 3; i++) posArray[i] = (Math.random() - 0.5) * (data.particles.spread || 10);
+                pGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                const pMat = new THREE.PointsMaterial({ size: data.particles.size || 0.1, color: data.particles.color || '#ffffff', transparent: true });
+                particleSystem = new THREE.Points(pGeo, pMat);
+                scene.add(particleSystem);
+            }
+
+            // Raycaster Interaction
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            let hoveredMesh = null;
+
+            const resizeObserver = new ResizeObserver(() => {
+                const nw = visualContainer.clientWidth;
+                const nh = visualContainer.clientHeight;
+                camera.aspect = nw / nh;
+                camera.updateProjectionMatrix();
+                renderer.setSize(nw, nh);
+            });
+            resizeObserver.observe(visualContainer);
+
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(clickableMeshes);
+
+                if (e.buttons > 0) return;
+
+                if (intersects.length > 0) {
+                    controls.autoRotate = false;
+                    renderer.domElement.style.cursor = 'pointer';
+                    const hit = intersects[0].object;
+
+                    if (hoveredMesh !== hit) {
+                        if (hoveredMesh) hoveredMesh.material.emissive.setHex(hoveredMesh.userData.originalEmissive);
+                        hoveredMesh = hit;
+                        // Brighten highlight dynamically based on base color
+                        const highlightColor = new THREE.Color(hoveredMesh.material.color).offsetHSL(0, 0, 0.2);
+                        hoveredMesh.material.emissive.setHex(highlightColor.getHex());
+                        updateTooltip(hoveredMesh.userData.name, hoveredMesh.userData.desc);
+                    }
+                } else {
+                    controls.autoRotate = camConf.auto_rotate || false;
+                    renderer.domElement.style.cursor = 'grab';
+                    if (hoveredMesh) {
+                        hoveredMesh.material.emissive.setHex(hoveredMesh.userData.originalEmissive);
+                        hoveredMesh = null;
+                        hideTooltip();
+                    }
+                }
+            });
+
+            renderer.domElement.addEventListener('click', () => {
+                if (hoveredMesh) {
+                    onVisualClick(hoveredMesh.userData.name);
+                    const original = hoveredMesh.userData.originalEmissive;
+                    hoveredMesh.material.emissive.setHex(0xffffff);
+                    setTimeout(() => { if (hoveredMesh) hoveredMesh.material.emissive.setHex(original); }, 150);
+                }
+            });
+
+            renderer.domElement.addEventListener('mousedown', () => renderer.domElement.style.cursor = 'grabbing');
+            renderer.domElement.addEventListener('mouseup', () => renderer.domElement.style.cursor = hoveredMesh ? 'pointer' : 'grab');
+            renderer.domElement.addEventListener('mouseleave', () => { hideTooltip(); controls.autoRotate = camConf.auto_rotate || false; });
+
+            let time = 0;
+            function animate() {
+                currentAnimationId = requestAnimationFrame(animate);
+                controls.update();
+                time += 0.05;
+
+                // Mesh Animations
+                clickableMeshes.forEach(mesh => {
+                    const anim = mesh.userData.animation;
+                    if (!anim || anim.type === 'none') return;
+
+                    if (anim.type === 'rotation') {
+                        const axis = anim.axis || 'y';
+                        mesh.rotation[axis] += anim.speed || 0.01;
+                    } else if (anim.type === 'pulse') {
+                        const scale = 1 + Math.sin(time) * (anim.amplitude || 0.05);
+                        mesh.scale.set(scale, scale, scale);
+                    } else if (anim.type === 'float') {
+                        mesh.position.y += Math.sin(time * (anim.speed || 1)) * (anim.amplitude || 0.01);
+                    }
+                });
+
+                // Particle Animation
+                if (particleSystem && data.particles.direction === 'up') {
+                    const positions = particleSystem.geometry.attributes.position.array;
+                    for (let i = 1; i < positions.length; i += 3) {
+                        positions[i] += data.particles.speed || 0.02;
+                        if (positions[i] > (data.particles.spread || 10)) positions[i] = -(data.particles.spread || 10);
+                    }
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                }
+
+                // Dynamic HTML Label Positioning
+                labels.forEach(({ mesh, div }) => {
+                    const vector = new THREE.Vector3();
+                    mesh.getWorldPosition(vector);
+                    vector.add(vector.clone().normalize().multiplyScalar(1.5));
+                    vector.project(camera);
+
+                    if (vector.z < 1 && Math.abs(vector.x) < 1 && Math.abs(vector.y) < 1) {
+                        const dir = mesh.position.clone().applyMatrix4(modelGroup.matrixWorld).sub(camera.position).normalize();
+                        raycaster.set(camera.position, dir);
+                        const intersects = raycaster.intersectObjects(clickableMeshes);
+
+                        if (intersects.length > 0 && intersects[0].object === mesh) {
+                            const x = (vector.x * 0.5 + 0.5) * visualContainer.clientWidth;
+                            const y = (vector.y * -0.5 + 0.5) * visualContainer.clientHeight;
+                            const isRight = mesh.position.x > 0;
+                            const offsetX = isRight ? 40 : -40;
+                            div.style.left = `${x + offsetX}px`;
+                            div.style.top = `${y}px`;
+                            div.style.opacity = '1';
+                        } else {
+                            div.style.opacity = '0';
+                        }
+                    } else {
+                        div.style.opacity = '0';
+                    }
+                });
+
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // ----------------------------------------------------
+        // THE 2D JSON TO SVG TRANSLATOR
+        // ----------------------------------------------------
+        function buildDynamic2DScene(data) {
+            showVisual();
+
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+
+            const conf = data.canvas_config;
+            svg.setAttribute("viewBox", conf.viewBox || `0 0 ${conf.width} ${conf.height}`);
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+
+            // Background Definition
+            const bgRect = document.createElementNS(svgNS, "rect");
+            bgRect.setAttribute("width", "100%");
+            bgRect.setAttribute("height", "100%");
+            bgRect.setAttribute("fill", conf.background || "#0a0a1a");
+            svg.appendChild(bgRect);
+
+            const styleConf = data.style;
+
+            // Draw Connections (First, so they sit behind nodes)
+            if (data.connections) {
+                data.connections.forEach(conn => {
+                    const fromNode = data.nodes.find(n => n.id === conn.from);
+                    const toNode = data.nodes.find(n => n.id === conn.to);
+
+                    if (fromNode && toNode) {
+                        const path = document.createElementNS(svgNS, "path");
+
+                        // Simple curved line calculation for flowchart
+                        const x1 = fromNode.position.x + (fromNode.size.width / 2);
+                        const y1 = fromNode.position.y + (fromNode.size.height / 2);
+                        const x2 = toNode.position.x + (toNode.size.width / 2);
+                        const y2 = toNode.position.y + (toNode.size.height / 2);
+
+                        // Bezier curve magic for organic routing
+                        const d = styleConf.line_style === 'curved'
+                            ? `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`
+                            : `M ${x1} ${y1} L ${x2} ${y2}`;
+
+                        path.setAttribute("d", d);
+                        path.setAttribute("stroke", conn.color || styleConf.line_color || "#4488aa");
+                        path.setAttribute("stroke-width", "3");
+                        path.setAttribute("fill", "none");
+
+                        if (conn.animated) {
+                            path.classList.add("anim-dynamic-flow");
+                        }
+                        svg.appendChild(path);
+                    }
+                });
+            }
+
+            // Draw Nodes
+            if (data.nodes) {
+                data.nodes.forEach(node => {
+                    const g = document.createElementNS(svgNS, "g");
+                    g.classList.add("clickable-region");
+
+                    if (node.animation && node.animation.type === 'pulse') {
+                        g.classList.add('anim-dynamic-pulse');
+                    }
+
+                    // Map Section Data for Interactivity
+                    const sectionData = data.sections.find(s => s.element_id === node.id) || {};
+                    g.setAttribute("data-name", sectionData.label || node.label);
+                    g.setAttribute("data-info", sectionData.detail || '');
+
+                    // Translate Group to Position
+                    g.setAttribute("transform", `translate(${node.position.x}, ${node.position.y})`);
+
+                    // Node Shape
+                    let shape;
+                    if (node.shape === 'circle') {
+                        shape = document.createElementNS(svgNS, "circle");
+                        shape.setAttribute("cx", node.size.width / 2);
+                        shape.setAttribute("cy", node.size.height / 2);
+                        shape.setAttribute("r", Math.min(node.size.width, node.size.height) / 2);
+                    } else if (node.shape === 'rounded_rect' || node.shape === 'rect') {
+                        shape = document.createElementNS(svgNS, "rect");
+                        shape.setAttribute("width", node.size.width);
+                        shape.setAttribute("height", node.size.height);
+                        if (node.shape === 'rounded_rect') {
+                            shape.setAttribute("rx", "12");
+                        }
+                    }
+
+                    // Apply Node Styles
+                    if (shape) {
+                        shape.setAttribute("fill", node.style.fill || "#0d2233");
+                        shape.setAttribute("stroke", node.style.stroke || "#00ffff");
+                        shape.setAttribute("stroke-width", node.style.stroke_width || "2");
+                        g.appendChild(shape);
+                    }
+
+                    // Node Text Label
+                    const text = document.createElementNS(svgNS, "text");
+                    text.setAttribute("x", node.size.width / 2);
+                    text.setAttribute("y", (node.size.height / 2) + 5); // Rough vertical center offset
+                    text.setAttribute("text-anchor", "middle");
+                    text.setAttribute("fill", styleConf.text_color || "#ffffff");
+                    text.setAttribute("font-family", "var(--font-family)");
+                    text.setAttribute("font-size", "14px");
+                    text.setAttribute("font-weight", "600");
+                    text.textContent = (node.style.icon ? node.style.icon + ' ' : '') + node.label;
+
+                    g.appendChild(text);
+                    svg.appendChild(g);
+                });
+            }
+
+            visualContainer.appendChild(svg);
+            wireUpGeneratedInteractiveNodes(visualContainer);
+        }
+
+
+    </script>
+</body>
+
+</html>
